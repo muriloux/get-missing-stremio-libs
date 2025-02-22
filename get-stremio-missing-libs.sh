@@ -26,7 +26,7 @@ Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg"
 echo -e "${YELLOW}➜ Adding Debian archive key...${RESET}"
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 04EE7237B7D453EC 648ACFD622F3D138
 
-# Check if the file exists and already has the expected entries
+# Create/update the sources file
 if [ -f "$SOURCE_LIST" ]; then
   if grep -Fq "bullseye" "$SOURCE_LIST" && grep -Fq "bullseye-updates" "$SOURCE_LIST"; then
     echo -e "${YELLOW}✔ $SOURCE_LIST already contains the expected entries.${RESET}"
@@ -43,27 +43,47 @@ fi
 echo -e "${YELLOW}➜ Updating package lists...${RESET}"
 sudo apt update
 
-# Install libmpv1 and warn if it fails
-echo -e "${YELLOW}➜ Installing libmpv1...${RESET}"
-if ! sudo apt install -y libmpv1; then
-  echo -e "${YELLOW}⚠ Warning: Installation of libmpv1 failed. Please check the package availability and your sources.${RESET}"
+# Check if libmpv1 is already installed
+if dpkg -s libmpv1 >/dev/null 2>&1; then
+  echo -e "${YELLOW}✔ libmpv1 is already installed.${RESET}"
+else
+  echo -e "${YELLOW}➜ Installing libmpv1...${RESET}"
+  if ! sudo apt install -y libmpv1; then
+    echo -e "${YELLOW}⚠ Warning: Installation of libmpv1 failed. Please check the package availability and your sources.${RESET}"
+    exit 1
+  fi
+fi
+
+# Determine system architecture for OpenSSL package
+ARCH=$(dpkg --print-architecture)
+if [[ "$ARCH" == "amd64" ]]; then
+  OPENSSL_DEB="openssl_1.1.1-1ubuntu2.1~18.04.23_amd64.deb"
+  OPENSSL_URL="https://nz2.archive.ubuntu.com/ubuntu/pool/main/o/openssl/$OPENSSL_DEB"
+elif [[ "$ARCH" == "i386" ]]; then
+  OPENSSL_DEB="openssl_1.1.1-1ubuntu2.1~18.04.23_i386.deb"
+  OPENSSL_URL="https://nz2.archive.ubuntu.com/ubuntu/pool/main/o/openssl/$OPENSSL_DEB"
+else
+  echo -e "${YELLOW}⚠ Unsupported architecture: $ARCH${RESET}"
   exit 1
 fi
 
-# Download and install OpenSSL 1.1.1
-OPENSSL_DEB="openssl_1.1.1-1ubuntu2.1~18.04.23_amd64.deb"
-OPENSSL_URL="https://nz2.archive.ubuntu.com/ubuntu/pool/main/o/openssl/$OPENSSL_DEB"
+TARGET_OPENSSL_VERSION="1.1.1-1ubuntu2.1~18.04.23"
+installed_openssl=$(dpkg-query -W -f='${Version}' openssl 2>/dev/null || echo "")
 
-echo -e "${YELLOW}➜ Downloading OpenSSL 1.1.1...${RESET}"
-if ! wget -O "/tmp/$OPENSSL_DEB" "$OPENSSL_URL"; then
-  echo -e "${YELLOW}⚠ Warning: Download of OpenSSL 1.1.1 failed. Please check your network connection or the URL.${RESET}"
-  exit 1
-fi
+if [ "$installed_openssl" = "$TARGET_OPENSSL_VERSION" ]; then
+  echo -e "${YELLOW}✔ OpenSSL ${TARGET_OPENSSL_VERSION} is already installed.${RESET}"
+else
+  echo -e "${YELLOW}➜ Downloading OpenSSL 1.1.1 for architecture $ARCH...${RESET}"
+  if ! wget -O "/tmp/$OPENSSL_DEB" "$OPENSSL_URL"; then
+    echo -e "${YELLOW}⚠ Warning: Download of OpenSSL 1.1.1 failed. Please check your network connection or the URL.${RESET}"
+    exit 1
+  fi
 
-echo -e "${YELLOW}➜ Installing OpenSSL 1.1.1...${RESET}"
-if ! sudo dpkg -i "/tmp/$OPENSSL_DEB"; then
-  echo -e "${YELLOW}⚠ Warning: Installation of OpenSSL 1.1.1 failed. Please review the package and its dependencies.${RESET}"
-  exit 1
+  echo -e "${YELLOW}➜ Installing OpenSSL 1.1.1...${RESET}"
+  if ! sudo dpkg -i "/tmp/$OPENSSL_DEB"; then
+    echo -e "${YELLOW}⚠ Warning: Installation of OpenSSL 1.1.1 failed. Please review the package and its dependencies.${RESET}"
+    exit 1
+  fi
 fi
 
 # Fix any missing dependencies
