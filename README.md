@@ -3,10 +3,12 @@ I made this script because whenever I have a new Ubuntu and then want to install
 
 **Running the Script**
 
-With curl
+With curl:
+
 `curl -sL https://raw.githubusercontent.com/muriloux/get-missing-stremio-libs/refs/heads/main/get-stremio-missing-libs.sh  | bash`
 
-With wget
+With wget:
+
 `wget -O - https://raw.githubusercontent.com/muriloux/get-missing-stremio-libs/refs/heads/main/get-stremio-missing-libs.sh | bash`
 
 TODO:
